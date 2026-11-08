@@ -79,6 +79,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- settings ----
     var settingsOpen by mutableStateOf(false)
     var glassOpacity by mutableFloatStateOf(prefs.getFloat("glass_opacity", 0.66f))
+        private set
     var tabOrder by mutableStateOf(loadTabOrder())
 
     // ---- essentials (pinned apps) ----
