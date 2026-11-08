@@ -79,7 +79,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- settings ----
     var settingsOpen by mutableStateOf(false)
     var glassOpacity by mutableFloatStateOf(prefs.getFloat("glass_opacity", 0.66f))
-        private set
     var tabOrder by mutableStateOf(loadTabOrder())
 
     // ---- essentials (pinned apps) ----
@@ -149,7 +148,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- settings: transparency, page order ----------------
-    fun setGlassOpacity(v: Float) {
+    fun updateGlassOpacity(v: Float) {
         glassOpacity = v.coerceIn(0.15f, 1f)
         prefs.edit().putFloat("glass_opacity", glassOpacity).apply()
     }

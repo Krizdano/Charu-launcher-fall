@@ -98,7 +98,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 Body("Controls how see-through cards, chips, fields and the bottom bar are.", size = 13.sp)
                 Slider(
                     value = transparency,
-                    onValueChange = { vm.setGlassOpacity(1f - 0.85f * it) },
+                    onValueChange = { vm.updateGlassOpacity(1f - 0.85f * it) },
                     colors = SliderDefaults.colors(
                         thumbColor = C.Cherry, activeTrackColor = C.Cherry,
                         inactiveTrackColor = Color(0x33876B5B),
@@ -122,7 +122,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 Text(
                     "Reset to default", color = C.Cherry, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape)
-                        .clickable { vm.setGlassOpacity(DEFAULT_GLASS_OPACITY) }.padding(horizontal = 4.dp, vertical = 12.dp),
+                        .clickable { vm.updateGlassOpacity(DEFAULT_GLASS_OPACITY) }.padding(horizontal = 4.dp, vertical = 12.dp),
                 )
             }
 
