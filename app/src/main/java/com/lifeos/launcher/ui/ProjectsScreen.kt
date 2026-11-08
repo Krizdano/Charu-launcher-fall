@@ -264,6 +264,11 @@ private fun ProjectDetail(vm: MainViewModel, p: ProjectEntity, tasks: List<TaskE
                 RoundIconButton(Icons.Rounded.Add, { submit() }, bg = C.Cherry, fg = C.Cream2, desc = "Add task")
             }
 
+            Spacer(Modifier.height(10.dp))
+            Row {
+                LoChip("Add existing tasks", false, { vm.addTasksProjectId = p.id }, Icons.Rounded.Add)
+            }
+
             SectionLabel("To do", todo.size.toString())
             if (todo.isEmpty()) {
                 Body(

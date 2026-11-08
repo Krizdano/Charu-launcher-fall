@@ -85,6 +85,10 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE done = 1")
     suspend fun clearDone()
 
+    /** Moves the given tasks into a project. */
+    @Query("UPDATE tasks SET projectId = :projectId WHERE id IN (:ids)")
+    suspend fun assignToProject(ids: List<Long>, projectId: Long)
+
     /** Detaches every task from a project (used when the project is deleted). */
     @Query("UPDATE tasks SET projectId = 0 WHERE projectId = :projectId")
     suspend fun unlinkProject(projectId: Long)

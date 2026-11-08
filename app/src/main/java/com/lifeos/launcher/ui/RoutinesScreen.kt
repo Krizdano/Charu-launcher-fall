@@ -50,7 +50,8 @@ fun RoutinesScreen(vm: MainViewModel) {
         bottom = { Deco(R.drawable.ill_cat_blanket, Modifier.fillMaxWidth().height(134.dp), Alignment.BottomCenter) },
     ) {
         PageHeader("Routines", "Small habits. Big changes.") {
-            GlassCard(radius = 16.dp, padding = 10.dp) {
+            // a plain pill: GlassCard fills the full width, which squeezed the page title away
+            Box(Modifier.glass(16.dp).padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text("$done / ${routines.size}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Ink)
             }
         }

@@ -70,8 +70,9 @@ fun LifeOsApp(vm: MainViewModel) {
 private fun LifeOsAppContent(vm: MainViewModel) {
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val projects by vm.projects.collectAsStateWithLifecycle()
+    val allTasks by vm.tasks.collectAsStateWithLifecycle()
     val dialogOpen = vm.captureOpen || vm.editTask != null || vm.editRoutine != null ||
-        vm.editProject != null || vm.pickerOpen || vm.musicPickerOpen
+        vm.editProject != null || vm.pickerOpen || vm.musicPickerOpen || vm.addTasksProjectId != null
 
     // ---- paging: swipe left / right between pages, in the user's chosen order ----
     val order = vm.tabOrder
@@ -166,6 +167,9 @@ private fun LifeOsAppContent(vm: MainViewModel) {
     if (vm.captureOpen) CaptureDialog(vm)
     if (vm.pickerOpen) AppPickerDialog(vm)
     if (vm.musicPickerOpen) MusicAppPickerDialog(vm)
+    vm.addTasksProjectId?.let { id ->
+        projects.firstOrNull { it.id == id }?.let { AddTasksToProjectDialog(vm, it, allTasks, projects) }
+    }
 
     vm.editTask?.let { t ->
         val del: (() -> Unit)? = if (t.id != 0L) ({ vm.deleteTask(t); vm.editTask = null }) else null

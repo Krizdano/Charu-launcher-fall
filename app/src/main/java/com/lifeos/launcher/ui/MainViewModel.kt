@@ -77,6 +77,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var editProject by mutableStateOf<ProjectEntity?>(null)
     /** Project whose detail page is showing on the Projects tab (null = the project list). */
     var openProjectId by mutableStateOf<Long?>(null)
+    /** Project that the "add existing tasks" picker is open for. */
+    var addTasksProjectId by mutableStateOf<Long?>(null)
     var initials by mutableStateOf(prefs.getString("initials", "AK") ?: "AK")
 
     // ---- settings ----
@@ -139,6 +141,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         drawerOpen = false
         captureOpen = false
         musicPickerOpen = false
+        addTasksProjectId = null
         tab = Tab.Home
     }
 
@@ -317,6 +320,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------------- routines ----------------
+    fun addRoutine(title: String, period: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            db.routines().insert(RoutineEntity(title = title.trim(), period = period))
+        }
+        toast("Routine added")
+    }
+
     fun toggleRoutine(r: RoutineEntity) {
         val done = r.doneDate == today
         viewModelScope.launch(Dispatchers.IO) {
@@ -354,6 +364,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             db.projects().delete(p)
         }
         toast("Project deleted")
+    }
+
+    fun assignTasks(p: ProjectEntity, ids: List<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            db.tasks().assignToProject(ids, p.id)
+            if (p.done) db.projects().update(p.copy(done = false))
+        }
+        toast(if (ids.size == 1) "Task added to project" else "${ids.size} tasks added to project")
     }
 
     fun setProjectDone(p: ProjectEntity, done: Boolean) {

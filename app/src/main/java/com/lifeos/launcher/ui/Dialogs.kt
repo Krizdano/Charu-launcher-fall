@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
@@ -220,6 +221,15 @@ fun CaptureDialog(vm: MainViewModel) {
     var text by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("task") }
     var section by remember { mutableStateOf(Sec.TODAY) }
+    var period by remember {
+        mutableStateOf(
+            when {
+                vm.now.hour < 12 -> Period.MORNING
+                vm.now.hour < 17 -> Period.AFTERNOON
+                else -> Period.EVENING
+            },
+        )
+    }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(200)
@@ -251,14 +261,22 @@ fun CaptureDialog(vm: MainViewModel) {
                         singleLine = false, minLines = 3,
                     )
                     Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LoChip("Task", type == "task", { type = "task" }, Icons.Rounded.TaskAlt)
                         LoChip("Note", type == "note", { type = "note" }, Icons.Rounded.Description)
                         LoChip("Event", type == "event", { type = "event" }, Icons.Rounded.CalendarMonth)
+                        LoChip("Routine", type == "routine", { type = "routine" }, Icons.Rounded.Autorenew)
                     }
                     if (type == "task") {
                         Spacer(Modifier.height(10.dp))
                         ChipRow(sectionOptions, section) { section = it }
+                    }
+                    if (type == "routine") {
+                        Spacer(Modifier.height(10.dp))
+                        ChipRow(
+                            listOf(Period.MORNING to "Morning", Period.AFTERNOON to "Afternoon", Period.EVENING to "Evening"),
+                            period,
+                        ) { period = it }
                     }
                     Spacer(Modifier.height(16.dp))
                     PillButton(
@@ -270,6 +288,7 @@ fun CaptureDialog(vm: MainViewModel) {
                                 when (type) {
                                     "task" -> vm.addTask(text, section)
                                     "note" -> vm.addNote(text)
+                                    "routine" -> vm.addRoutine(text, period)
                                     else -> ctx.safeStart(CalendarRepo.addEventIntent(vm.selectedDate, text.trim()))
                                 }
                                 close()
@@ -362,7 +381,6 @@ fun RoutineDialog(initial: RoutineEntity, onSave: (RoutineEntity) -> Unit, onDel
 @Composable
 fun ProjectDialog(initial: ProjectEntity, onSave: (ProjectEntity) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf(initial.title) }
-    var sub by remember { mutableStateOf(initial.subtitle) }
     var cat by remember { mutableStateOf(initial.category) }
     var colorIdx by remember { mutableIntStateOf(initial.colorIdx) }
     var due by remember { mutableStateOf(initial.dueDate) }
@@ -370,8 +388,6 @@ fun ProjectDialog(initial: ProjectEntity, onSave: (ProjectEntity) -> Unit, onDel
     LoDialog(onDismiss) {
         DialogHeader(if (initial.id == 0L) "New project" else "Edit project", "Make it a clear next step.", onDismiss)
         LoField(title, { title = it }, "Project name")
-        Spacer(Modifier.height(10.dp))
-        LoField(sub, { sub = it }, "What does done look like?")
         Spacer(Modifier.height(10.dp))
         LoField(cat, { cat = it }, "Category (Work, Personal…)")
         Spacer(Modifier.height(14.dp))
@@ -402,7 +418,7 @@ fun ProjectDialog(initial: ProjectEntity, onSave: (ProjectEntity) -> Unit, onDel
         Row(verticalAlignment = Alignment.CenterVertically) {
             PillButton("Save", {
                 if (title.isNotBlank()) {
-                    onSave(initial.copy(title = title.trim(), subtitle = sub.trim(), category = cat.trim().ifBlank { "Personal" }, colorIdx = colorIdx, dueDate = due))
+                    onSave(initial.copy(title = title.trim(), category = cat.trim().ifBlank { "Personal" }, colorIdx = colorIdx, dueDate = due))
                 }
             }, Modifier.weight(1f))
             if (onDelete != null) DeleteLink(onDelete)
