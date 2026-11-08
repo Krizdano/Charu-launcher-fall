@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun LifeOsApp(vm: MainViewModel) {
@@ -68,8 +69,9 @@ fun LifeOsApp(vm: MainViewModel) {
 @Composable
 private fun LifeOsAppContent(vm: MainViewModel) {
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val projects by vm.projects.collectAsStateWithLifecycle()
     val dialogOpen = vm.captureOpen || vm.editTask != null || vm.editRoutine != null ||
-        vm.editProject != null || vm.pickerOpen
+        vm.editProject != null || vm.pickerOpen || vm.musicPickerOpen
 
     // ---- paging: swipe left / right between pages, in the user's chosen order ----
     val order = vm.tabOrder
@@ -95,6 +97,7 @@ private fun LifeOsAppContent(vm: MainViewModel) {
         when {
             vm.settingsOpen -> vm.settingsOpen = false
             vm.drawerOpen -> vm.drawerOpen = false
+            vm.tab == Tab.Projects && vm.openProjectId != null -> vm.openProjectId = null
             vm.tab != Tab.Home -> vm.tab = Tab.Home
         }
     }
@@ -162,10 +165,11 @@ private fun LifeOsAppContent(vm: MainViewModel) {
 
     if (vm.captureOpen) CaptureDialog(vm)
     if (vm.pickerOpen) AppPickerDialog(vm)
+    if (vm.musicPickerOpen) MusicAppPickerDialog(vm)
 
     vm.editTask?.let { t ->
         val del: (() -> Unit)? = if (t.id != 0L) ({ vm.deleteTask(t); vm.editTask = null }) else null
-        TaskDialog(t, { vm.saveTask(it); vm.editTask = null }, del, { vm.editTask = null })
+        TaskDialog(t, { vm.saveTask(it); vm.editTask = null }, del, { vm.editTask = null }, projects)
     }
     vm.editRoutine?.let { r ->
         val del: (() -> Unit)? = if (r.id != 0L) ({ vm.deleteRoutine(r); vm.editRoutine = null }) else null

@@ -225,7 +225,7 @@ fun HomeScreen(vm: MainViewModel) {
                     fontSize = 13.sp, color = C.Brown,
                 )
             }
-            GlassCard(Modifier.weight(1f).fillMaxHeight(), radius = 20.dp, padding = 14.dp, onClick = { vm.tab = Tab.Music }) {
+            GlassCard(Modifier.weight(1f).fillMaxHeight(), radius = 20.dp, padding = 14.dp, onClick = { if (np?.playing == true) vm.tab = Tab.Music else vm.openMusicApp(ctx) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.MusicNote, null, tint = C.Ink, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -237,7 +237,7 @@ fun HomeScreen(vm: MainViewModel) {
                     np?.title ?: "Nothing playing",
                     fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = C.Ink, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
-                Text(np?.artist?.ifBlank { null } ?: "Open Music to connect", fontSize = 13.sp, color = C.Brown, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(np?.artist?.ifBlank { null } ?: "Tap to open music", fontSize = 13.sp, color = C.Brown, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
 

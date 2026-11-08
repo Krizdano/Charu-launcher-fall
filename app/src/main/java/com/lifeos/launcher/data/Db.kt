@@ -11,6 +11,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 object Sec {
@@ -35,6 +37,8 @@ data class TaskEntity(
     val section: String = Sec.TODAY,
     val dueLabel: String = "",
     val done: Boolean = false,
+    /** Id of the project this task belongs to; 0 = not part of any project. */
+    val projectId: Long = 0,
 )
 
 @Entity(tableName = "notes")
@@ -61,7 +65,12 @@ data class ProjectEntity(
     val subtitle: String = "",
     val category: String = "PERSONAL",
     val colorIdx: Int = 0,
+    /** Legacy manual progress. Progress is now derived from the project's tasks. */
     val progress: Int = 0,
+    /** ISO date (yyyy-MM-dd) the project is due, or "" for no deadline. */
+    val dueDate: String = "",
+    /** True once the project has been marked complete. */
+    val done: Boolean = false,
 )
 
 @Dao
@@ -75,6 +84,10 @@ interface TaskDao {
 
     @Query("DELETE FROM tasks WHERE done = 1")
     suspend fun clearDone()
+
+    /** Detaches every task from a project (used when the project is deleted). */
+    @Query("UPDATE tasks SET projectId = 0 WHERE projectId = :projectId")
+    suspend fun unlinkProject(projectId: Long)
 }
 
 @Dao
@@ -106,9 +119,23 @@ interface ProjectDao {
     @Delete suspend fun delete(p: ProjectEntity)
 }
 
+/** v2: tasks can belong to a project; projects get a due date and a completed flag. */
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE tasks ADD COLUMN projectId INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE projects ADD COLUMN dueDate TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE projects ADD COLUMN done INTEGER NOT NULL DEFAULT 0")
+        // Tasks that were tagged with a project's name (the old way of grouping) join that project.
+        db.execSQL(
+            "UPDATE tasks SET projectId = COALESCE(" +
+                "(SELECT id FROM projects WHERE projects.title = tasks.tag LIMIT 1), 0) WHERE tag != ''"
+        )
+    }
+}
+
 @Database(
     entities = [TaskEntity::class, NoteEntity::class, RoutineEntity::class, ProjectEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDb : RoomDatabase() {
@@ -122,6 +149,7 @@ abstract class AppDb : RoomDatabase() {
 
         fun get(context: Context): AppDb = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDb::class.java, "lifeos.db")
+                .addMigrations(MIGRATION_1_2)
                 .build()
                 .also { instance = it }
         }

@@ -1,11 +1,13 @@
 package com.lifeos.launcher.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -41,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifeos.launcher.R
 import kotlin.math.roundToInt
 
@@ -50,6 +56,8 @@ fun SettingsScreen(vm: MainViewModel) {
     var initials by remember { mutableStateOf(vm.initials) }
     var saved by remember { mutableStateOf(false) }
     val transparency = ((1f - vm.glassOpacity) / 0.85f).coerceIn(0f, 1f)
+    val apps by vm.apps.collectAsStateWithLifecycle()
+    val musicApp = apps.firstOrNull { it.pkg == vm.defaultMusicPkg }
 
     Box(
         Modifier.fillMaxSize()
@@ -124,6 +132,49 @@ fun SettingsScreen(vm: MainViewModel) {
                     modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape)
                         .clickable { vm.updateGlassOpacity(DEFAULT_GLASS_OPACITY) }.padding(horizontal = 4.dp, vertical = 12.dp),
                 )
+            }
+
+            // ---------------- music ----------------
+            GlassCard {
+                Eyebrow("Music", color = C.Ink)
+                Spacer(Modifier.height(4.dp))
+                Body("Tapping the Now Playing card opens this app when nothing is playing.", size = 13.sp)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp))
+                        .clickable { vm.musicPickerOpen = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (musicApp != null) {
+                        Image(musicApp.icon, null, Modifier.size(40.dp))
+                    } else {
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape).background(C.Cherry.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Rounded.MusicNote, null, tint = C.Cherry, modifier = Modifier.size(22.dp)) }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Default music app", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = C.Ink)
+                        Text(
+                            when {
+                                musicApp != null -> musicApp.label
+                                vm.defaultMusicPkg != null -> "Not installed"
+                                else -> "System default"
+                            },
+                            fontSize = 13.sp, color = C.Brown,
+                        )
+                    }
+                    Icon(Icons.Rounded.ChevronRight, null, tint = C.Brown, modifier = Modifier.size(22.dp))
+                }
+                if (vm.defaultMusicPkg != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Use system default", color = C.Cherry, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape)
+                            .clickable { vm.setDefaultMusic(null) }.padding(horizontal = 4.dp, vertical = 12.dp),
+                    )
+                }
             }
 
             // ---------------- page order ----------------

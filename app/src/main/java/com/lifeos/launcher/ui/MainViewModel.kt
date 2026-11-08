@@ -2,6 +2,7 @@ package com.lifeos.launcher.ui
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -74,12 +75,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var editTask by mutableStateOf<TaskEntity?>(null)
     var editRoutine by mutableStateOf<RoutineEntity?>(null)
     var editProject by mutableStateOf<ProjectEntity?>(null)
+    /** Project whose detail page is showing on the Projects tab (null = the project list). */
+    var openProjectId by mutableStateOf<Long?>(null)
     var initials by mutableStateOf(prefs.getString("initials", "AK") ?: "AK")
 
     // ---- settings ----
     var settingsOpen by mutableStateOf(false)
     var glassOpacity by mutableFloatStateOf(prefs.getFloat("glass_opacity", 0.66f))
     var tabOrder by mutableStateOf(loadTabOrder())
+
+    // ---- music: default player app ----
+    var defaultMusicPkg by mutableStateOf(prefs.getString("default_music_pkg", null))
+        private set
+    var musicPickerOpen by mutableStateOf(false)
 
     // ---- essentials (pinned apps) ----
     var pinned by mutableStateOf(loadPinned())
@@ -130,6 +138,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         settingsOpen = false
         drawerOpen = false
         captureOpen = false
+        musicPickerOpen = false
         tab = Tab.Home
     }
 
@@ -184,6 +193,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         saveTabOrder()
     }
 
+    // ---------------- music: default player ----------------
+    fun setDefaultMusic(pkg: String?) {
+        defaultMusicPkg = pkg
+        prefs.edit().apply { if (pkg == null) remove("default_music_pkg") else putString("default_music_pkg", pkg) }.apply()
+        toast(if (pkg == null) "Using the system music app" else "Default music app saved")
+    }
+
+    /** Opens the user's chosen music app, or the system's default music app if none is chosen. */
+    fun openMusicApp(ctx: Context) {
+        val pkg = defaultMusicPkg
+        if (pkg != null) {
+            val launch = ctx.packageManager.getLaunchIntentForPackage(pkg)
+            if (launch != null && ctx.tryStart(launch)) return
+            toast("Your music app isn't available any more")
+        }
+        val system = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MUSIC)
+        if (!ctx.tryStart(system)) {
+            toast("Choose a default music app in Settings")
+            settingsOpen = true
+        }
+    }
+
     // ---------------- essentials: pinned apps ----------------
     private fun loadPinned(): List<String> =
         prefs.getString("pinned_apps", "")?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
@@ -208,7 +239,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             t.insert(TaskEntity(title = "Reply to emails", tag = "Work", estimateMin = 15, section = Sec.TODAY, dueLabel = "2:00 PM"))
             t.insert(TaskEntity(title = "Book dentist appointment", tag = "Personal", section = Sec.UPCOMING, dueLabel = "Soon"))
             t.insert(TaskEntity(title = "Prepare presentation", tag = "Work", section = Sec.UPCOMING, dueLabel = "This week"))
-            t.insert(TaskEntity(title = "Review design notes", tag = "Launcher v3", section = Sec.WORK))
             t.insert(TaskEntity(title = "Send weekly update", tag = "Admin", section = Sec.WORK))
 
             val d = LocalDate.now().toString()
@@ -222,9 +252,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             r.insert(RoutineEntity(title = "Wind down", subtitle = "Screens off", period = Period.EVENING))
 
             val p = db.projects()
-            p.insert(ProjectEntity(title = "Launcher v3", subtitle = "Complete the native port", category = "WORK", colorIdx = 0, progress = 78))
-            p.insert(ProjectEntity(title = "Learn Rust", subtitle = "Build a small practical project", category = "PERSONAL", colorIdx = 1, progress = 40))
-            p.insert(ProjectEntity(title = "Reading list", subtitle = "Make room for curiosity", category = "PERSONAL", colorIdx = 2, progress = 60))
+            val tasks = db.tasks()
+            val inTwoWeeks = LocalDate.now().plusDays(14).toString()
+            val inMonth = LocalDate.now().plusDays(30).toString()
+            val launcher = p.insert(ProjectEntity(title = "Launcher v3", subtitle = "Complete the native port", category = "WORK", colorIdx = 0, dueDate = inTwoWeeks))
+            val rust = p.insert(ProjectEntity(title = "Learn Rust", subtitle = "Build a small practical project", category = "PERSONAL", colorIdx = 1, dueDate = inMonth))
+            val reading = p.insert(ProjectEntity(title = "Reading list", subtitle = "Make room for curiosity", category = "PERSONAL", colorIdx = 2))
+            tasks.insert(TaskEntity(title = "Port the home screen", section = Sec.WORK, projectId = launcher, done = true))
+            tasks.insert(TaskEntity(title = "Add settings page", section = Sec.WORK, projectId = launcher, done = true))
+            tasks.insert(TaskEntity(title = "Test on a real phone", section = Sec.WORK, projectId = launcher))
+            tasks.insert(TaskEntity(title = "Read the first three chapters", section = Sec.WORK, projectId = rust, done = true))
+            tasks.insert(TaskEntity(title = "Write a small command-line tool", section = Sec.WORK, projectId = rust))
+            tasks.insert(TaskEntity(title = "Pick the next book", section = Sec.WORK, projectId = reading))
+            tasks.insert(TaskEntity(title = "Read 20 pages", section = Sec.WORK, projectId = reading))
 
             prefs.edit().putBoolean("seeded", true).apply()
         }
@@ -298,12 +338,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------- projects ----------------
     fun saveProject(p: ProjectEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (p.id == 0L) db.projects().insert(p) else db.projects().update(p)
+            if (p.id == 0L) {
+                val id = db.projects().insert(p)
+                openProjectId = id // jump straight into the new project so tasks can be added
+            } else {
+                db.projects().update(p)
+            }
         }
     }
 
     fun deleteProject(p: ProjectEntity) {
-        viewModelScope.launch(Dispatchers.IO) { db.projects().delete(p) }
+        if (openProjectId == p.id) openProjectId = null
+        viewModelScope.launch(Dispatchers.IO) {
+            db.tasks().unlinkProject(p.id) // tasks are kept, just detached
+            db.projects().delete(p)
+        }
+        toast("Project deleted")
+    }
+
+    fun setProjectDone(p: ProjectEntity, done: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) { db.projects().update(p.copy(done = done)) }
+        toast(if (done) "Project complete. Well done!" else "Project reopened")
+    }
+
+    fun addProjectTask(p: ProjectEntity, title: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            db.tasks().insert(TaskEntity(title = title.trim(), section = Sec.WORK, projectId = p.id))
+            // adding work to a finished project reopens it
+            if (p.done) db.projects().update(p.copy(done = false))
+        }
     }
 
     // ---------------- focus ----------------

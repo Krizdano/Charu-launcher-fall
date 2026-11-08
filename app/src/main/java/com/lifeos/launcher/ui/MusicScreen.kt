@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,9 @@ fun MusicScreen(vm: MainViewModel) {
         }
     }
     val track = np
+    val apps by vm.apps.collectAsStateWithLifecycle()
+    val defaultLabel = apps.firstOrNull { it.pkg == vm.defaultMusicPkg }?.label
+    val idle = track?.playing != true
 
     PageScroll(
         decor = {
@@ -100,7 +104,8 @@ fun MusicScreen(vm: MainViewModel) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(320f / 220f)
                 .softShadow(22.dp).clip(RoundedCornerShape(22.dp))
-                .border(1.dp, C.Hairline, RoundedCornerShape(22.dp)),
+                .border(1.dp, C.Hairline, RoundedCornerShape(22.dp))
+                .then(if (idle) Modifier.clickable { vm.openMusicApp(ctx) } else Modifier),
         ) {
             Deco(R.drawable.ill_record_scene, Modifier.matchParentSize())
         }
@@ -142,6 +147,14 @@ fun MusicScreen(vm: MainViewModel) {
             )
             RoundIconButton(Icons.Rounded.SkipNext, { vm.media.next() }, size = 52.dp, bg = androidx.compose.ui.graphics.Color.Transparent, desc = "Next track")
             RoundIconButton(Icons.Rounded.Forward10, { vm.media.seekBy(10_000) }, size = 48.dp, bg = androidx.compose.ui.graphics.Color.Transparent, desc = "Forward 10 seconds")
+        }
+
+        if (idle) {
+            PillButton(
+                if (defaultLabel != null) "Open $defaultLabel" else "Open music app",
+                { vm.openMusicApp(ctx) },
+                Modifier.fillMaxWidth(),
+            )
         }
 
         if (track != null) {

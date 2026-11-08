@@ -44,6 +44,8 @@ private val groups = listOf(
 @Composable
 fun TasksScreen(vm: MainViewModel) {
     val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val projects by vm.projects.collectAsStateWithLifecycle()
+    val projectNames = projects.associate { it.id to it.title }
     var filter by rememberSaveable { mutableStateOf("all") }
     var menu by remember { mutableStateOf(false) }
     val q = vm.taskQuery.trim()
@@ -97,7 +99,8 @@ fun TasksScreen(vm: MainViewModel) {
                     items.forEachIndexed { i, t: TaskEntity ->
                         TaskRow(
                             title = t.title,
-                            sub = t.tag,
+                            sub = listOf(t.tag, projectNames[t.projectId].orEmpty())
+                                .filter { it.isNotBlank() }.distinct().joinToString(" · "),
                             trailing = t.dueLabel,
                             done = t.done,
                             onToggle = { vm.toggleTask(t) },

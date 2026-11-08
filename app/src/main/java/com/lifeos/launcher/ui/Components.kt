@@ -432,3 +432,11 @@ fun Context.safeStart(intent: Intent) {
     } catch (_: Exception) {
     }
 }
+
+/** Like [safeStart] but reports whether an activity was actually started. */
+fun Context.tryStart(intent: Intent): Boolean = try {
+    startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    true
+} catch (_: Exception) {
+    false
+}

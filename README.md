@@ -5,15 +5,16 @@ A native Jetpack Compose / Kotlin port of the "Neo Editorial" life.os mockup, bu
 ## What's real
 | Area | Behaviour |
 |---|---|
-| Tasks, Routines, Projects, Inbox | Fully editable, stored on-device with Room. Tap any row/card to edit or delete. Routines reset every day. |
+| Tasks, Routines, Inbox | Fully editable, stored on-device with Room. Tap any row/card to edit or delete. Routines reset every day. |
+| Projects | Each project has its own page: add and tick off tasks, set a deadline, and mark it complete. Progress is worked out from the project's tasks. Tasks can also be assigned to a project from the task editor. |
 | Quick capture (＋) | Task → Tasks list, Note → Inbox, Event → opens your calendar app pre-filled. |
 | Focus card | Starts a countdown from the task's estimate (25 min default); "Mark done" completes it. |
 | Calendar | Reads your phone's calendars (READ_CALENDAR). Month grid, per-day agenda, tap an event to open it, "+ Add event" opens the calendar app. |
-| Music | Reads the active media session (Spotify, YouTube Music, …) and controls play/pause/next/previous/±10 s. Needs **Notification access** once. |
+| Music | Reads the active media session (Spotify, YouTube Music, …) and controls play/pause/next/previous/±10 s. Needs **Notification access** once. When nothing is playing, tapping the Now Playing card (or the Music page artwork) opens your default music app. |
 | App drawer | Tap the grid icon (top right) or swipe up on the bottom bar. Search, long-press for App info / Uninstall. |
 | Swipe paging | Swipe left / right anywhere on a page to go to the next / previous page (in your chosen order). |
 | Essentials page | Pin your go-to apps (+ button, or long-press any app in the drawer). Tap to open, long-press to unpin. |
-| Settings | Tap your initials (top right): edit initials, glass transparency slider, and page order (move pages up/down). |
+| Settings | Tap your initials (top right): edit initials, glass transparency slider, default music app, and page order (move pages up/down). |
 | Home button | Behaves like a launcher: returns to the Home tab and closes the drawer. |
 
 Sample tasks/routines/projects are seeded on first launch — delete or edit freely.

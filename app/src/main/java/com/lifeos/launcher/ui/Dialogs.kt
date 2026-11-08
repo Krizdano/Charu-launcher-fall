@@ -31,12 +31,17 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -78,6 +83,9 @@ import com.lifeos.launcher.data.RoutineEntity
 import com.lifeos.launcher.data.Sec
 import com.lifeos.launcher.data.TaskEntity
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** Click with no ripple (used to catch taps on dialog scrims and cards). */
 @Composable
@@ -278,12 +286,19 @@ fun CaptureDialog(vm: MainViewModel) {
 
 // ---------------------------------------------------------------- task
 @Composable
-fun TaskDialog(initial: TaskEntity, onSave: (TaskEntity) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
+fun TaskDialog(
+    initial: TaskEntity,
+    onSave: (TaskEntity) -> Unit,
+    onDelete: (() -> Unit)?,
+    onDismiss: () -> Unit,
+    projects: List<ProjectEntity> = emptyList(),
+) {
     var title by remember { mutableStateOf(initial.title) }
     var tag by remember { mutableStateOf(initial.tag) }
     var est by remember { mutableStateOf(if (initial.estimateMin > 0) initial.estimateMin.toString() else "") }
     var due by remember { mutableStateOf(initial.dueLabel) }
     var sec by remember { mutableStateOf(initial.section) }
+    var projectId by remember { mutableStateOf(initial.projectId) }
     LoDialog(onDismiss) {
         DialogHeader(if (initial.id == 0L) "New task" else "Edit task", "Shape the step.", onDismiss)
         LoField(title, { title = it }, "What needs doing?")
@@ -296,11 +311,20 @@ fun TaskDialog(initial: TaskEntity, onSave: (TaskEntity) -> Unit, onDelete: (() 
         }
         Spacer(Modifier.height(12.dp))
         ChipRow(sectionOptions, sec) { sec = it }
+        if (projects.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Eyebrow("Project")
+            Spacer(Modifier.height(6.dp))
+            ChipRow(
+                listOf("0" to "None") + projects.filter { !it.done || it.id == projectId }.map { it.id.toString() to it.title },
+                projectId.toString(),
+            ) { projectId = it.toLongOrNull() ?: 0L }
+        }
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             PillButton("Save", {
                 if (title.isNotBlank()) {
-                    onSave(initial.copy(title = title.trim(), tag = tag.trim(), estimateMin = est.toIntOrNull() ?: 0, dueLabel = due.trim(), section = sec))
+                    onSave(initial.copy(title = title.trim(), tag = tag.trim(), estimateMin = est.toIntOrNull() ?: 0, dueLabel = due.trim(), section = sec, projectId = projectId))
                 }
             }, Modifier.weight(1f))
             if (onDelete != null) DeleteLink(onDelete)
@@ -341,7 +365,8 @@ fun ProjectDialog(initial: ProjectEntity, onSave: (ProjectEntity) -> Unit, onDel
     var sub by remember { mutableStateOf(initial.subtitle) }
     var cat by remember { mutableStateOf(initial.category) }
     var colorIdx by remember { mutableIntStateOf(initial.colorIdx) }
-    var progress by remember { mutableFloatStateOf(initial.progress.toFloat()) }
+    var due by remember { mutableStateOf(initial.dueDate) }
+    var pickDate by remember { mutableStateOf(false) }
     LoDialog(onDismiss) {
         DialogHeader(if (initial.id == 0L) "New project" else "Edit project", "Make it a clear next step.", onDismiss)
         LoField(title, { title = it }, "Project name")
@@ -360,21 +385,50 @@ fun ProjectDialog(initial: ProjectEntity, onSave: (ProjectEntity) -> Unit, onDel
             }
         }
         Spacer(Modifier.height(14.dp))
-        Eyebrow("Progress · ${progress.toInt()}%")
-        Slider(
-            value = progress, onValueChange = { progress = it }, valueRange = 0f..100f,
-            colors = SliderDefaults.colors(thumbColor = C.Cherry, activeTrackColor = C.Cherry, inactiveTrackColor = Color(0x33876B5B)),
-        )
-        Spacer(Modifier.height(10.dp))
+        Eyebrow("Deadline")
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            LoChip(
+                if (due.isBlank()) "Set a date" else prettyDate(due),
+                selected = due.isNotBlank(),
+                onClick = { pickDate = true },
+                icon = Icons.Rounded.CalendarMonth,
+            )
+            if (due.isNotBlank()) LoChip("Clear", false, { due = "" })
+        }
+        Spacer(Modifier.height(8.dp))
+        Body("Progress is worked out from the project's tasks. Add them on the project page.", size = 12.sp)
+        Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             PillButton("Save", {
                 if (title.isNotBlank()) {
-                    onSave(initial.copy(title = title.trim(), subtitle = sub.trim(), category = cat.trim().ifBlank { "Personal" }, colorIdx = colorIdx, progress = progress.toInt()))
+                    onSave(initial.copy(title = title.trim(), subtitle = sub.trim(), category = cat.trim().ifBlank { "Personal" }, colorIdx = colorIdx, dueDate = due))
                 }
             }, Modifier.weight(1f))
             if (onDelete != null) DeleteLink(onDelete)
         }
     }
+    if (pickDate) DuePicker(due, { due = it; pickDate = false }, { pickDate = false })
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DuePicker(current: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val start = try { LocalDate.parse(current) } catch (_: Exception) { LocalDate.now() }
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                val ms = state.selectedDateMillis
+                if (ms == null) onDismiss()
+                else onPick(Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate().toString())
+            }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    ) { DatePicker(state = state) }
 }
 
 // ---------------------------------------------------------------- initials
